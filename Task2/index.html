@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smartwatch - Stopwatch Web App</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: 'Poppins', sans-serif;
+        background: linear-gradient(135deg, #141e30, #243b55);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: white;
+    }
+
+    .watch {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 30px;
+        padding: 30px;
+        width: 350px;
+        text-align: center;
+        backdrop-filter: blur(18px);
+        box-shadow: 0 0 30px rgba(0, 150, 255, 0.4);
+    }
+
+    h2 {
+        margin: 0 0 12px;
+        font-size: 22px;
+        letter-spacing: 1px;
+    }
+
+    .top-info {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        opacity: 0.95;
+        margin-bottom: 8px;
+    }
+
+    .heart {
+        color: #ff4f6d;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.75; }
+        100% { transform: scale(1.15); opacity: 1; }
+    }
+
+    #display {
+        font-size: 46px;
+        margin: 14px 0;
+        letter-spacing: 2px;
+        color: #00eaff;
+        text-shadow: 0 0 12px #00eaff;
+    }
+
+    .buttons button {
+        margin: 8px;
+        padding: 10px 18px;
+        border: none;
+        border-radius: 22px;
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform .12s ease, opacity .12s ease;
+    }
+    #start { background: #16db65; }
+    #pause { background: #f1c40f; color: #111; }
+    #reset { background: #e63946; }
+    #lap   { background: #4361ee; }
+
+    .buttons button:active { transform: scale(.98); }
+
+    .laps {
+        margin-top: 16px;
+        background: rgba(255,255,255,0.06);
+        padding: 12px;
+        border-radius: 12px;
+        max-height: 130px;
+        overflow-y: auto;
+    }
+
+    .laps ul { list-style: none; padding: 0; margin: 0; }
+    .laps ul li {
+        background: rgba(255,255,255,0.08);
+        margin: 6px 0;
+        padding: 6px 8px;
+        border-radius: 8px;
+        font-size: 14px;
+        display:flex;
+        justify-content:space-between;
+    }
+</style>
+</head>
+<body>
+
+<div class="watch">
+    <h2>⏱ Smartwatch Stopwatch</h2>
+
+    <div class="top-info">
+        <div class="heart" id="heart">❤️ 82 BPM</div>
+        <div class="battery" id="battery">🔋 95%</div>
+    </div>
+
+    <div id="display">00:00:00</div>
+
+    <div class="buttons">
+        <!-- explicit type="button" prevents accidental form submit -->
+        <button id="start" type="button">Start</button>
+        <button id="pause" type="button">Pause</button>
+        <button id="reset" type="button">Reset</button>
+        <button id="lap" type="button">Lap</button>
+    </div>
+
+    <div class="laps">
+        <h4 style="margin:0 0 8px 0;">Lap Times</h4>
+        <ul id="lapList"></ul>
+    </div>
+</div>
+
+<script>
+/*
+ Improvements:
+ - pause now saves elapsedTime before stopping interval (so resume continues correctly)
+ - reset clears everything and sets timerInterval = null
+ - buttons use type="button" so they won't submit forms if embedded
+ - defensive checks to avoid clearing null intervals
+*/
+
+let startTime = 0;
+let elapsedTime = 0;     // milliseconds already elapsed (used when paused/resuming)
+let timerInterval = null;
+
+const display = document.getElementById("display");
+const lapList = document.getElementById("lapList");
+const startBtn = document.getElementById("start");
+const pauseBtn = document.getElementById("pause");
+const resetBtn = document.getElementById("reset");
+const lapBtn = document.getElementById("lap");
+
+// Heart rate (fake) animation
+let bpm = 82;
+setInterval(() => {
+    bpm = Math.max(60, Math.round(bpm + (Math.random() * 6 - 3)));
+    document.getElementById("heart").textContent = `❤️ ${bpm} BPM`;
+}, 1500);
+
+// Battery mimic (just for UI)
+let battery = 95;
+setInterval(() => {
+    battery = Math.max(10, battery - (Math.random() < 0.05 ? 1 : 0));
+    document.getElementById("battery").textContent = `🔋 ${battery}%`;
+}, 4000);
+
+startBtn.addEventListener("click", () => {
+    // If already running, do nothing
+    if (timerInterval !== null) return;
+
+    // startTime is set so that elapsedTime accumulates across pauses
+    startTime = Date.now() - elapsedTime;
+    timerInterval = setInterval(updateTime, 100);
+});
+
+pauseBtn.addEventListener("click", () => {
+    // If not running, nothing to pause
+    if (timerInterval === null) return;
+
+    // Save the elapsed time up to this moment
+    elapsedTime = Date.now() - startTime;
+
+    // Stop the interval and mark as stopped
+    clearInterval(timerInterval);
+    timerInterval = null;
+});
+
+resetBtn.addEventListener("click", () => {
+    // Stop interval if running
+    if (timerInterval !== null) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+
+    // Reset times and UI
+    startTime = 0;
+    elapsedTime = 0;
+    display.textContent = "00:00:00";
+    lapList.innerHTML = "";
+});
+
+lapBtn.addEventListener("click", () => {
+    // You can still record a lap even when paused — it records the last shown time
+    const li = document.createElement("li");
+    const timeLabel = document.createElement("span");
+    timeLabel.textContent = display.textContent;
+
+    const idx = lapList.children.length + 1;
+    const idxSpan = document.createElement("span");
+    idxSpan.textContent = `Lap ${idx}`;
+
+    li.appendChild(idxSpan);
+    li.appendChild(timeLabel);
+    li.style.justifyContent = "space-between";
+    lapList.appendChild(li);
+});
+
+function updateTime() {
+    elapsedTime = Date.now() - startTime;
+
+    const ms = Math.floor((elapsedTime % 1000) / 10);
+    const s = Math.floor((elapsedTime / 1000) % 60);
+    const m = Math.floor((elapsedTime / (1000 * 60)) % 60);
+
+    display.textContent = `${pad(m)}:${pad(s)}:${pad(ms)}`;
+}
+
+function pad(unit) {
+    return unit < 10 ? "0" + unit : unit;
+}
+</script>
+
+</body>
+</html>
+ 
